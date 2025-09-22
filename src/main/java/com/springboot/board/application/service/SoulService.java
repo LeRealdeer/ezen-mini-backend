@@ -13,6 +13,8 @@ import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -135,4 +137,58 @@ public class SoulService {
         result.put("next", next);
         return result;
     }
+
+    // SoulService.java에 추가할 메소드
+
+/** 가장 오랫동안 안 온 영혼들 조회 */
+public List<Map<String, Object>> getOldestSpirits() {
+    // 1. 모든 영혼 조회
+    List<SoulEntity> allSouls = soulRepository.findAll();
+    
+    // 2. 이름별로 그룹화하여 가장 최근 영혼만 선택
+    Map<String, SoulEntity> latestByName = allSouls.stream()
+        .collect(Collectors.toMap(
+            SoulEntity::getName,
+            soul -> soul,
+            (existing, replacement) -> {
+                // 동일 이름일 경우 더 최근 startDate를 가진 것 선택
+                if (replacement.getStartDate().isAfter(existing.getStartDate())) {
+                    return replacement;
+                } else if (replacement.getStartDate().equals(existing.getStartDate())) {
+                    // 시작일이 같으면 endDate가 더 최근인 것 선택
+                    return replacement.getEndDate().isAfter(existing.getEndDate()) ? replacement : existing;
+                }
+                return existing;
+            }
+        ));
+    
+    // 3. 현재 날짜 기준으로 안 온 기간 계산 및 정렬
+    LocalDate today = LocalDate.now();
+    
+    return latestByName.values().stream()
+        .map(soul -> {
+            // 마지막으로 온 날짜는 endDate
+            LocalDate lastVisitDate = soul.getEndDate();
+            long daysSinceLastVisit = ChronoUnit.DAYS.between(lastVisitDate, today);
+            
+            // 음수면 아직 진행 중이거나 미래 일정
+            if (daysSinceLastVisit < 0) {
+                daysSinceLastVisit = 0;
+            }
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("soul", mapper.toResponse(soul));
+            result.put("daysSinceLastVisit", daysSinceLastVisit);
+            result.put("lastVisitDate", lastVisitDate);
+            result.put("isActive", daysSinceLastVisit == 0); // 현재 활성 상태인지
+            
+            return result;
+        })
+        // 안 온 기간 내림차순 정렬 (가장 오래 안 온 순서)
+        .sorted((a, b) -> Long.compare(
+            (Long) b.get("daysSinceLastVisit"), 
+            (Long) a.get("daysSinceLastVisit")
+        ))
+        .collect(Collectors.toList());
+}
 }
