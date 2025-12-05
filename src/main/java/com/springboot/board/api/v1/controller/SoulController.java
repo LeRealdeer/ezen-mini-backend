@@ -123,7 +123,7 @@ public class SoulController {
         public ApiResponse<Map<String, List<SoulResponse>>> getNeighbors(@PathVariable Integer id) {
                 return ApiResponse.success(soulService.getNeighbors(id));
         }
-// SoulController.java에 추가할 메소드
+
 
 @Operation(summary = "가장 오랫동안 안 온 영혼들 조회 (페이징)", description = "동일 이름 영혼 중 가장 최근 기준으로 안 온 기간을 계산하여 정렬 (페이징 지원)")
 @ApiResponses(value = {
